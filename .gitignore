@@ -1,0 +1,9 @@
+### CLion ###
+.idea/
+cmake-build-debug/
+### Statements and reports ###
+*.pdf
+*.pages
+*.docx
+### MacOS ###
+.DS_Store
