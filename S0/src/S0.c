@@ -24,7 +24,7 @@ void ess_print_error(const char * const string) {
 }
 
 char * ess_read_until(const int fd, const char end) {
-    size_t buffer_size = 8;
+    ssize_t buffer_size = 8;
     char *string = (char *) malloc(sizeof(char) * buffer_size);
     if (string == NULL) {
         ess_print_error("malloc failed.");
@@ -157,7 +157,7 @@ Supplier* read_suppliers(const char *suppliers_file, int *supplier_count) {
         return NULL;
     }
 
-    Supplier* suppliers = (Supplier*) malloc(sizeof(Supplier));
+    Supplier *suppliers = (Supplier*) malloc(sizeof(Supplier));
     if (suppliers == NULL) {
         ess_print_error("Error allocating memory for suppliers");
         exit(EXIT_FAILURE);
@@ -171,7 +171,7 @@ Supplier* read_suppliers(const char *suppliers_file, int *supplier_count) {
             break;
         }
 
-        int id = atoi(line);
+        const int id = atoi(line);
         free(line);
 
         line = ess_read_until(fd_suppliers, '&');
@@ -183,11 +183,20 @@ Supplier* read_suppliers(const char *suppliers_file, int *supplier_count) {
         line = ess_read_until(fd_suppliers, '\n');
         char *street = line;
 
-        suppliers = (Supplier*) realloc(suppliers, sizeof(Supplier) * (*supplier_count + 1));
-        if (suppliers == NULL) {
+        Supplier *temp_array = (Supplier*) realloc(suppliers, sizeof(Supplier) * (*supplier_count + 1));
+        if (temp_array == NULL) {
             ess_print_error("Error reallocating memory for suppliers");
+            for (int i = 0; i <= *supplier_count; i++) {
+                free(suppliers[i].supplierName);
+                free(suppliers[i].email);
+                free(suppliers[i].city);
+                free(suppliers[i].street);
+            }
+            free(suppliers);
             exit(EXIT_FAILURE);
         }
+
+        suppliers = temp_array;
 
         suppliers[*supplier_count].id = id;
         suppliers[*supplier_count].supplierName = supplierName;
@@ -253,7 +262,7 @@ int main (const int argc, char *argv[]) {
 
     int supplier_count = 0;
 
-    Supplier* suppliers = read_suppliers(suppliers_file, &supplier_count);
+    Supplier *suppliers = read_suppliers(suppliers_file, &supplier_count);
     if (suppliers == NULL) {
         return 1;
     }
@@ -261,6 +270,12 @@ int main (const int argc, char *argv[]) {
     const int output_file = open("demand.txt", O_WRONLY | O_CREAT | O_TRUNC, 0666);
     if (output_file < 0) {
         ess_print_error("Couldn't open demand file.");
+        for (int i = 0; i <= supplier_count; i++) {
+            free(suppliers[i].supplierName);
+            free(suppliers[i].email);
+            free(suppliers[i].city);
+            free(suppliers[i].street);
+        }
         free(suppliers);
         free(low_stock_products);
         free(sufficient_products);
@@ -305,7 +320,7 @@ int main (const int argc, char *argv[]) {
     free(products_listed);
     close(output_file);
 
-    for (int i = 0; i < supplier_count; i++) {
+    for (int i = 0; i <= supplier_count; i++) {
         free(suppliers[i].supplierName);
         free(suppliers[i].email);
         free(suppliers[i].city);
