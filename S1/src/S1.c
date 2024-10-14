@@ -138,8 +138,7 @@ void main_signal_handler(const int s) {
     }
 }
 
-int main(void)
-{
+int main(void) {
     for (int i = 1; i <= 64; i++) {
         signal(i, main_signal_handler);
     }
