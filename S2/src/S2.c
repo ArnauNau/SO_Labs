@@ -263,13 +263,18 @@ void start_string_group() {
 int main(const int argc, char *argv[]) {
     if (argc > 1) {
         ess_print("The following arguments were given: ");
-        ess_println(argv[1]);
+        for (int i = 1; i < argc; i++) {
+            ess_print(argv[i]);
+            ess_print(" ");
+        }
+        ess_println("");
         ess_print_error("No arguments are accepted by this program.");
+        exit(-1);
     }
 
     char *buffer;
     asprintf(&buffer, COLOR_YELLOW "Director (PID %d) starting the concert. Use 'kill -SIGUSR1 PID' to start sections." COLOR_DEFAULT, getpid());
-    ess_println(buffer);
+    ess_print(buffer);
     free(buffer);
 
     signal(SIGUSR1, start_string);
@@ -284,15 +289,19 @@ int main(const int argc, char *argv[]) {
                 break;
             case START_STRING:
                 start_string_group();
+                flag = WAITING;
                 break;
             case START_WIND:
                 start_wind_group();
+                flag = WAITING;
                 break;
             case START_PERCUSSION:
                 start_percussion_group();
+                flag = WAITING;
                 break;
             default:
                 ess_print_error("Unknown status.");
+                flag = WAITING;
                 break;
         }
     }
