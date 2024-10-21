@@ -19,10 +19,6 @@
 #include <string.h>
 #include <stdio.h>
 
-void mean(){
-
-}
-
 void ess_print(const char * const string) {
     write(STDOUT_FILENO, string, strlen(string));
 }
@@ -267,7 +263,6 @@ int main (const int argc, char *argv[]) {
     ess_println(buffer);
     free(buffer);
 
-    
     if (mean != NULL) free(mean);
     if (median != NULL) free(median);
     if (max != NULL) free(max);
@@ -276,5 +271,4 @@ int main (const int argc, char *argv[]) {
     if (data != NULL) free(data);
 
     exit(0);
-
 }
