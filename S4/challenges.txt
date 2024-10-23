@@ -1,0 +1,5 @@
+What has keys but can’t open locks?|A Piano&It plays music.
+What gets wetter as it dries?|A Towel&It absorbs water.
+I’m not alive, but I grow; I don’t have lungs, but I need air; I don’t have a mouth, but water kills me.|Fire&It needs oxygen to burn.
+What is the decoded message from "Wklv lv d whvw" using Caesar cipher with a shift of -3?|This is a test&Shift each letter backward by 3.
+Translate this code: "Kvn gsv grnv xzgv lu zmbgsrmt"|Now the time part of history&Use Atbash cipher.
