@@ -154,10 +154,10 @@ int main (const int argc, char *argv[]) {
     s_addr.sin_family = AF_INET;
     s_addr.sin_port = htons(atoi(argv[2]));
     s_addr.sin_addr = ip_addr;
-    if(connect (sockfd, (void *) &s_addr, sizeof (s_addr)) < 0){
+    if(connect(sockfd, (void *) &s_addr, sizeof (s_addr)) < 0) {
         ess_print_error("connect");
+        close(sockfd);
         exit (EXIT_FAILURE);
-
     }
     ess_println( TTY_COLOR_MAGENTA "Welcome to RiddleQuest. Prepare to unlock the secrets and discover the treasure!" TTY_COLOR_DEFAULT);
 
