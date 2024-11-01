@@ -1,27 +1,22 @@
 // S4.c
 // jeancarlo.saman@students.salle.url.edu - Jean Carlo Saman
 // arnau.sf@students.salle.url.edu - Arnau Sanz Froiz
+
 #define _GNU_SOURCE
-#define _XOPEN_SOURCE 500
 
 #include <signal.h>
-#include <fcntl.h>
 #include <pthread.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <math.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+/************************************ ESSLIB START ********************************************************************/
 #define TTY_COLOR_DEFAULT "\033[m"
 #define TTY_COLOR_MAGENTA "\033[35m"
 #define TTY_COLOR_BLUE "\033[34m"
@@ -87,16 +82,14 @@ char * ess_read_until(const int fd, const char end) {
 char * ess_read_line(const int fd) {
     return ess_read_until(fd, '\n');
 }
+/************************************ ESSLIB END ********************************************************************/
 
-// 9700-9709
+// Assigned ports on montserrat.salle.url.edu : 9700-9709
 #define REQUEST_CHALLENGE 1
 #define SEND_ANSWER 2
 #define REQUEST_HINT 3
 #define CURRENT_STATUS 4
 #define TERMINATE 5
-
-
-int sockfd; //so I can close the socket on ctrl+C <3
 
 void print_menu() {
     ess_println("====================================");
@@ -143,7 +136,7 @@ int main (const int argc, char *argv[]) {
 
     struct in_addr ip_addr;
     inet_aton(argv[1], &ip_addr);
-    sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd < 0) {
         ess_print_error("socket");
         exit (EXIT_FAILURE);
@@ -165,9 +158,6 @@ int main (const int argc, char *argv[]) {
     char *buffer = ess_read_line(STDIN_FILENO);
     send_message(sockfd, buffer);
     free(buffer);
-
-    /*buffer = ess_read_line(sockfd);
-    ess_println(buffer);*/
 
     while (1) {
         print_menu();
