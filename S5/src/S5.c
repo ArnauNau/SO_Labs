@@ -119,10 +119,11 @@ void receive_message(const int sock, char **buffer) {
 }
 
 void send_message(const int sock, const char *const string) {
-    char *buff = strdup(string);
+    char *buff = malloc(sizeof(char) * (strlen(string) + 2));
+    strcpy(buff, string);
     buff[strlen(string)] = '\n';
-    buff[strlen(string)+1] = '\0';
-    write(sock, buff, strlen(buff));
+    buff[strlen(string) + 1] = '\0';
+    write(sock, buff, strlen(string) + 1);
     free(buff);
 }
 
