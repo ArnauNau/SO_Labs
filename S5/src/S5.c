@@ -78,7 +78,10 @@ char * ess_read_until(const int fd, const char end) {
             free(string);
             return NULL;
         }
-        if (c == '\0') return NULL;
+        if (c == '\0') {
+            free(string);
+            return NULL;
+        }
         if(c != end){
             if (i + 1 >= buffer_size) {
                 buffer_size = buffer_size * 2;
@@ -114,7 +117,7 @@ void receive_message(const int sock, char **buffer) {
     *buffer = ess_read_line(sock);
     if (*buffer == NULL) {
         close(sock);
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -131,10 +134,20 @@ void ignore_sigint() {
     ess_println(TTY_COLOR_RED "Exiting server..." TTY_COLOR_DEFAULT);
 }
 
+inline void free_challenges(struct Challenge *const challenges, const int count) {
+    if (challenges == NULL) return;
+    for (int i = 0; i < count; i++) {
+        free(challenges[i].question);
+        free(challenges[i].answer);
+        free(challenges[i].hint);
+    }
+    free(challenges);
+}
 //Question1|Answer1&Hint\n
-void read_challenges_file (const int fd, struct Challenge **challenges, int *challenges_count) {
+int read_challenges_file(const int fd, struct Challenge **const challenges, int *const challenges_count) {
     *challenges_count = 0;
     *challenges = NULL;
+    int status = 0;
 
     while (1) {
         char *buffer = ess_read_until(fd, '|');
@@ -142,36 +155,52 @@ void read_challenges_file (const int fd, struct Challenge **challenges, int *cha
             break;
         }
 
-        struct Challenge temp_challenge;
+        struct Challenge temp_challenge = {0};
+
         temp_challenge.question = strdup(buffer);
         free(buffer);
 
         buffer = ess_read_until(fd, '&');
+        if (buffer == NULL) {
+            ess_print_error("Failed to read answer.");
+            free(temp_challenge.question);
+            status = -1;
+            break;
+        }
         temp_challenge.answer = strdup(buffer);
         free(buffer);
 
         buffer = ess_read_until(fd, '\n');
+        if (buffer == NULL) {
+            ess_print_error("Failed to read hint.");
+            free(temp_challenge.question);
+            free(temp_challenge.answer);
+            status = -1;
+            break;
+        }
         temp_challenge.hint = strdup(buffer);
         free(buffer);
 
         struct Challenge *temp_list = realloc(*challenges, sizeof(struct Challenge) * (*challenges_count + 1));
-        if (NULL == temp_list) {
-            for (int i = 0; i < *challenges_count; i++) {
-                free((*challenges)[i].question);
-                free((*challenges)[i].answer);
-                free((*challenges)[i].hint);
-            }
-            free(*challenges);
+        if (temp_list == NULL) {
+            ess_print_error("Realloc failed.");
             free(temp_challenge.question);
             free(temp_challenge.answer);
             free(temp_challenge.hint);
-            ess_print_error("Realloc failed");
-            exit(EXIT_FAILURE);
+            status = -1;
+            break;
         }
         *challenges = temp_list;
         (*challenges)[*challenges_count] = temp_challenge;
         (*challenges_count)++;
     }
+
+    if (status != 0) {
+        free_challenges(*challenges, *challenges_count);
+        *challenges = NULL;
+        *challenges_count = 0;
+    }
+    return status;
 }
 
 void * handle_connection (void * cha_list) {
@@ -262,6 +291,7 @@ void * handle_connection (void * cha_list) {
                 break;
         }
     }
+    free(username);
     close(sockfd);
     exit(EXIT_SUCCESS);
 }
@@ -300,12 +330,7 @@ int main (const int argc, char *argv[]) {
     s_addr.sin_addr.s_addr = INADDR_ANY;
 
     if(bind(sockfd, (void *) &s_addr, sizeof (s_addr)) < 0){
-        for (int i = 0; i < list.challenge_count; i++) {
-            free(list.challenges[i].question);
-            free(list.challenges[i].answer);
-            free(list.challenges[i].hint);
-        }
-        free(list.challenges);
+        free_challenges(list.challenges, list.challenge_count);
         close(sockfd);
         ess_print_error("Couldn't bind socket.");
         exit (EXIT_FAILURE);
@@ -323,12 +348,7 @@ int main (const int argc, char *argv[]) {
         const int newsock = accept(sockfd, (void *) &c_addr, &c_len);
         if(newsock < 0) {
             ess_print_error("Couldn't accept socket.");
-            for (int i = 0; i < list.challenge_count; i++) {
-                free(list.challenges[i].question);
-                free(list.challenges[i].answer);
-                free(list.challenges[i].hint);
-            }
-            free(list.challenges);
+            free_challenges(list.challenges, list.challenge_count);
             close(sockfd);
             exit(EXIT_FAILURE);
         }
@@ -339,14 +359,8 @@ int main (const int argc, char *argv[]) {
         pthread_join(connection_thread, (void **) &ignore);
         break;
     }
-    //ess_println( TTY_COLOR_MAGENTA "Welcome to RiddleQuest. Prepare to unlock the secrets and discover the treasure!" TTY_COLOR_DEFAULT);
 
-    for (int i = 0; i < list.challenge_count; i++) {
-        free(list.challenges[i].question);
-        free(list.challenges[i].answer);
-        free(list.challenges[i].hint);
-    }
-    free(list.challenges);
+    free_challenges(list.challenges, list.challenge_count);
     close(sockfd);
     exit(EXIT_SUCCESS);
 }
