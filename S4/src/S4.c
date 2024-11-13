@@ -136,7 +136,7 @@ int main (const int argc, char *argv[]) {
 
     struct in_addr ip_addr;
     inet_aton(argv[1], &ip_addr);
-    int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    const int sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sockfd < 0) {
         ess_print_error("socket");
         exit (EXIT_FAILURE);
@@ -147,7 +147,7 @@ int main (const int argc, char *argv[]) {
     s_addr.sin_family = AF_INET;
     s_addr.sin_port = htons(atoi(argv[2]));
     s_addr.sin_addr = ip_addr;
-    if(connect(sockfd, (void *) &s_addr, sizeof (s_addr)) < 0) {
+    if (connect(sockfd, (void *) &s_addr, sizeof (s_addr)) < 0) {
         ess_print_error("connect");
         close(sockfd);
         exit (EXIT_FAILURE);
