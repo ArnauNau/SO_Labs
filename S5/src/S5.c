@@ -7,14 +7,11 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <pthread.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <math.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -204,8 +201,8 @@ int read_challenges_file(const int fd, struct Challenge **const challenges, int 
 }
 
 void * handle_connection (void * cha_list) {
-    struct ChallengeList *list = (struct ChallengeList *) cha_list;
-    const int sockfd = list->socket;
+    const struct ChallengeList list = *(struct ChallengeList *) cha_list;
+    const int sockfd = list.socket;
 
     char *buffer;
     receive_message(sockfd, &buffer);
@@ -227,7 +224,7 @@ void * handle_connection (void * cha_list) {
                     asprintf(&buffer, TTY_COLOR_BLUE "%s - request challenge..." TTY_COLOR_DEFAULT, username);
                     ess_println(buffer);
                     free(buffer);
-                    send_message(sockfd, list->challenges[current_challenge].question);
+                    send_message(sockfd, list.challenges[current_challenge].question);
                     break;
             case SEND_ANSWER:
                 //receive solution
@@ -236,16 +233,16 @@ void * handle_connection (void * cha_list) {
                     free(buffer);
                     ess_println(TTY_COLOR_YELLOW "Checking answer..." TTY_COLOR_DEFAULT);
                     receive_message(sockfd, &buffer);
-                    if(strcmp(buffer, list->challenges[current_challenge].answer) == 0){
+                    if (strcmp(buffer, list.challenges[current_challenge].answer) == 0){
                         free(buffer);
                         //correct answer
                         current_challenge++;
-                        if (current_challenge == list->challenge_count) {
+                        if (current_challenge == list.challenge_count) {
                             buffer = TTY_COLOR_GREEN "Congratulations! You've completed all challenges. Press 4 to get the treasure coordinates." TTY_COLOR_DEFAULT;
                         } else {
                             buffer = TTY_COLOR_GREEN "Correct answer! Proceeding to next challenge." TTY_COLOR_DEFAULT;
                         }
-                    }else{
+                    } else {
                         free(buffer);
                         //wrong answer
                         buffer = "Incorrect answer!";
@@ -257,22 +254,22 @@ void * handle_connection (void * cha_list) {
                     asprintf(&buffer, TTY_COLOR_BLUE "%s - Request hint..." TTY_COLOR_DEFAULT, username);
                     ess_println(buffer);
                     free(buffer);
-                    send_message(sockfd, list->challenges[current_challenge].hint);
+                    send_message(sockfd, list.challenges[current_challenge].hint);
                     ess_println(TTY_COLOR_YELLOW "Hint sent!" TTY_COLOR_DEFAULT);
                     break;
             case CURRENT_STATUS:
                 //current status
-                    asprintf(&buffer, TTY_COLOR_BLUE "%s - Request to view current mission status" TTY_COLOR_DEFAULT, username);
+                    asprintf(&buffer, TTY_COLOR_BLUE "%s - request to view current mission status..." TTY_COLOR_DEFAULT, username);
                     ess_println(buffer);
                     free(buffer);
-                    if (current_challenge == list->challenge_count) {
+                    if (current_challenge == list.challenge_count) {
                         buffer = TTY_COLOR_GREEN "Congratulations! You've found the treasure at coordinates: X:100, Y:200. Disconnecting." TTY_COLOR_DEFAULT;
                         send_message(sockfd, buffer);
                         free(username);
                         close(sockfd);
-                        exit(EXIT_SUCCESS);
+                        pthread_exit(EXIT_SUCCESS);
                     } else {
-                        asprintf(&buffer, TTY_COLOR_MAGENTA "You're currently on challenge %d out of %d." TTY_COLOR_DEFAULT, current_challenge, list->challenge_count);
+                        asprintf(&buffer, TTY_COLOR_MAGENTA "You're currently on challenge %d out of %d." TTY_COLOR_DEFAULT, current_challenge, list.challenge_count);
                         send_message(sockfd, buffer);
                         free(buffer);
                     }
@@ -280,9 +277,10 @@ void * handle_connection (void * cha_list) {
             case TERMINATE:
                     asprintf(&buffer, TTY_COLOR_BLUE "%s - Decided to terminate the connection" TTY_COLOR_DEFAULT, username);
                     ess_println(buffer);
+                    free(buffer);
                     free(username);
                     close(sockfd);
-                    exit(EXIT_SUCCESS);
+                    pthread_exit(EXIT_SUCCESS);
                     break;
             default:
                     receive_message(sockfd, &buffer);
@@ -293,7 +291,7 @@ void * handle_connection (void * cha_list) {
     }
     free(username);
     close(sockfd);
-    exit(EXIT_SUCCESS);
+    pthread_exit(EXIT_SUCCESS);
 }
 
 int main (const int argc, char *argv[]) {
@@ -314,7 +312,11 @@ int main (const int argc, char *argv[]) {
     struct ChallengeList list;
     list.challenge_count = 0;
     list.challenges = NULL;
-    read_challenges_file(challenges_file, &(list.challenges), &(list.challenge_count));
+    if (read_challenges_file(challenges_file, &(list.challenges), &(list.challenge_count)) != 0) {
+        ess_print_error("Failed to read challenges.");
+        close(challenges_file);
+        exit(EXIT_FAILURE);
+    }
     close(challenges_file);
 
     sockfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
