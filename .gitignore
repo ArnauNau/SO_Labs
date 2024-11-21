@@ -7,3 +7,4 @@ cmake-build-debug/
 *.docx
 ### MacOS ###
 .DS_Store
+*.plist
