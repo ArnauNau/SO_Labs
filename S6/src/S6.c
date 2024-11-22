@@ -34,7 +34,13 @@ void ess_print_error(const char * const string) {
 #define DEPARTURE_REPORT 0x02
 #define TERMINATE_EVENT 0x04
 
-int main (void) {
+int main (const int argc, const char * const argv[]) {
+
+    if (argc != 1) {
+        ess_print_error("Invalid number of arguments.");
+        exit(EXIT_FAILURE);
+    }
+
     int station_pipes[NUM_OF_STATIONS][2];
     pid_t stations[NUM_OF_STATIONS];
     for (int i = 0; i < NUM_OF_STATIONS; i++) {
