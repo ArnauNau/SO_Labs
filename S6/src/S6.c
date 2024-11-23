@@ -34,80 +34,7 @@ void ess_print_error(const char * const string) {
 #define DEPARTURE_REPORT 0x02
 #define TERMINATE_EVENT 0x04
 
-int main (const int argc, const char * const argv[]) {
-
-    if (argc != 1) {
-        ess_print_error("Invalid number of arguments.");
-        exit(EXIT_FAILURE);
-    }
-
-    int station_pipes[NUM_OF_STATIONS][2];
-    pid_t stations[NUM_OF_STATIONS];
-    for (int i = 0; i < NUM_OF_STATIONS; i++) {
-        if (pipe(station_pipes[i]) == -1) {
-            ess_print_error("Error creating pipe.");
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    const int shmid = shmget(IPC_PRIVATE, sizeof(int) * NUM_OF_STATIONS, IPC_CREAT | IPC_EXCL | 0600);
-    if (shmid <= 0) {
-        ess_print_error("Error getting shared mem region.");
-        exit(EXIT_FAILURE);
-    }
-
-    int *const num_of_passengers = shmat(shmid, NULL, 0);
-    if (num_of_passengers == (int *) -1) {
-        ess_print_error("Error linking shared mem.");
-        exit(EXIT_FAILURE);
-    }
-
-    for (int i = 0; i < NUM_OF_STATIONS; i++) {
-        num_of_passengers[i] = 0;
-    }
-
-    for (int station_id = 0; station_id < NUM_OF_STATIONS; station_id++) {
-        stations[station_id] = fork();
-        if (stations[station_id] == -1) {
-            ess_print_error("Error creating Station.");
-        }
-        else if (stations[station_id] == 0) {
-            //is child
-            close(station_pipes[station_id][0]);
-
-            srand(time(NULL) ^ ((unsigned long)getpid() << 16));
-
-            int passengers = 0;
-
-            for (int train = 0; train < NUM_OF_TRAINS; train++) {
-                const int random = rand();
-                sleep((random % 10) + 1);
-
-                const int event = (random % 2 == 0) ? ARRIVAL_REPORT : DEPARTURE_REPORT;
-
-                if (event & ARRIVAL_REPORT) {
-                    passengers += random%40+10;
-                }
-                else if (event & DEPARTURE_REPORT) {
-                    passengers -= random%40+10;
-                    if (passengers < 0) passengers = 0;
-                }
-                write(station_pipes[station_id][1], &event, sizeof(int));
-                num_of_passengers[station_id] = passengers;
-            }
-
-            const int event = TERMINATE_EVENT;
-            write(station_pipes[station_id][1], &event, sizeof(int));
-            close(station_pipes[station_id][1]);
-            _exit(EXIT_SUCCESS);
-        }
-    }
-
-    //parent - Central node
-    for (int i = 0; i < NUM_OF_STATIONS; i++) {
-        close(station_pipes[i][1]);
-    }
-
+void manageCentralNode (const int station_pipes[NUM_OF_STATIONS][2], volatile int *const num_of_passengers) {
     fd_set pipe_set;
     int max_fd = 0;
 
@@ -156,7 +83,89 @@ int main (const int argc, const char * const argv[]) {
             }
         }
     }
+}
 
+void manageStation (const int station_pipes[2], const int station_id, volatile int *const num_of_passengers) {
+    close(station_pipes[0]);
+
+    srand(time(NULL) ^ ((unsigned long)getpid() << 16));
+
+    int passengers = 0;
+
+    for (int train = 0; train < NUM_OF_TRAINS; train++) {
+        const int random = rand();
+        sleep((random % 10) + 1);
+
+        const int event = (random % 2 == 0) ? ARRIVAL_REPORT : DEPARTURE_REPORT;
+
+        if (event & ARRIVAL_REPORT) {
+            passengers += random%40+10;
+        }
+        else if (event & DEPARTURE_REPORT) {
+            passengers -= random%40+10;
+            if (passengers < 0) passengers = 0;
+        }
+        write(station_pipes[1], &event, sizeof(int));
+        *num_of_passengers = passengers;
+    }
+
+    const int event = TERMINATE_EVENT;
+    write(station_pipes[1], &event, sizeof(int));
+    close(station_pipes[1]);
+    _exit(EXIT_SUCCESS);
+}
+
+int main (const int argc, const char * const argv[]) {
+
+    if (argc != 1) {
+        ess_print_error("Invalid number of arguments.");
+        exit(EXIT_FAILURE);
+    }
+
+    int station_pipes[NUM_OF_STATIONS][2];
+    pid_t stations[NUM_OF_STATIONS];
+    for (int i = 0; i < NUM_OF_STATIONS; i++) {
+        if (pipe(station_pipes[i]) == -1) {
+            ess_print_error("Error creating pipe.");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    const int shmid = shmget(IPC_PRIVATE, sizeof(int) * NUM_OF_STATIONS, IPC_CREAT | IPC_EXCL | 0600);
+    if (shmid <= 0) {
+        ess_print_error("Error getting shared mem region.");
+        exit(EXIT_FAILURE);
+    }
+
+    int *const num_of_passengers = shmat(shmid, NULL, 0);
+    if (num_of_passengers == (int *) -1) {
+        ess_print_error("Error linking shared mem.");
+        exit(EXIT_FAILURE);
+    }
+
+    for (int i = 0; i < NUM_OF_STATIONS; i++) {
+        num_of_passengers[i] = 0;
+    }
+
+    for (int station_id = 0; station_id < NUM_OF_STATIONS; station_id++) {
+        stations[station_id] = fork();
+        if (stations[station_id] == -1) {
+            ess_print_error("Error creating Station.");
+        }
+        else if (stations[station_id] == 0) {
+            //is child - Station
+            manageStation(station_pipes[station_id], station_id, num_of_passengers);
+        }
+    }
+
+    //parent - Central node
+    for (int i = 0; i < NUM_OF_STATIONS; i++) {
+        close(station_pipes[i][1]);
+    }
+
+    manageCentralNode(station_pipes, num_of_passengers);
+
+    //terminating...
     for (int i = 0; i < NUM_OF_STATIONS; i++) {
         close(station_pipes[i][0]);
     }
