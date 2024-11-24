@@ -9,7 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <signal.h>
 #include <sys/wait.h>
 #include <sys/shm.h>
 #include <time.h>
