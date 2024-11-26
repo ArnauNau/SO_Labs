@@ -154,83 +154,83 @@ void send_response(const int client_sock, const char *const response) {
 
 void handle_client (struct Dictionary *const dictionary, struct User *user, char request[256]) {
     char *response;
-        if (request[0] == 'C') {
-            // search for a word
-            asprintf(&response, "User %s has requested search word command.", user->username);
-            ess_println(response);
-            free(response);
-            char *word = request + 2;
-            word[strlen(word) - 1] = '\0';
-            asprintf(&response, "Searching for word -> %s...", word);
-            ess_println(response);
-            free(response);
-            for (unsigned int i = 0; i < dictionary->num_entries; i++) {
-                if (strcmp(dictionary->entries[i].word, word) == 0) {
-                    asprintf(&response, "D*%s*%s\n", dictionary->entries[i].word, dictionary->entries[i].definition);
-                    send_response(user->socket, response);
-                    free(response);
-                    return;
-                }
+    if (request[0] == 'C') {
+        // search for a word
+        asprintf(&response, "User %s has requested search word command.", user->username);
+        ess_println(response);
+        free(response);
+        char *word = request + 2;
+        word[strlen(word) - 1] = '\0';
+        asprintf(&response, "Searching for word -> %s", word);
+        ess_println(response);
+        free(response);
+        for (unsigned int i = 0; i < dictionary->num_entries; i++) {
+            if (strcmp(dictionary->entries[i].word, word) == 0) {
+                asprintf(&response, "D*%s*%s\n", dictionary->entries[i].word, dictionary->entries[i].definition);
+                send_response(user->socket, response);
+                free(response);
+                return;
             }
-            asprintf(&response, "E* The word %s has not been found in the dictionary.\n", word);
-            send_response(user->socket, response);
-            free(response);
-        } else if (request[0] == 'A') {
-            // add word to dictionary
-            asprintf(&response, "User %s has requested add word command.", user->username);
-            ess_println(response);
-            free(response);
-            //split word*definition\n from request into word and definition
-            char *word = strtok(request + 2, "*");
-            char *definition = strtok(NULL, "\n");
-
-            dictionary->num_entries++;
-            dictionary->entries = realloc(dictionary->entries, sizeof(DictionaryEntry) * dictionary->num_entries);
-            dictionary->entries[dictionary->num_entries - 1].word = strdup(word);
-            dictionary->entries[dictionary->num_entries - 1].definition = strdup(definition);
-            asprintf(&response, "OK* The word %s has been added to the dictionary.\n", word);
-            send_response(user->socket, response);
-            free(response);
-
-        } else if (request[0] == 'L') {
-            // list all words
-            asprintf(&response, "User %s has requested list words command.", user->username);
-            ess_println(response);
-            free(response);
-            asprintf(&response, "L*%lu*", dictionary->num_entries);
-            for (unsigned int i = 0; i < dictionary->num_entries; i++) {
-                char *temp;
-                asprintf(&temp, "%s\n", dictionary->entries[i].word);
-                char *temp2 = realloc(response, strlen(response) + strlen(temp) + 1);
-                if (temp2 == NULL) {
-                    free(response);
-                    free(temp);
-                    ess_print_error("Error on realloc.");
-                    return;
-                }
-                response = temp2;
-                strcat(response, temp);
-                free(temp);
-            }
-            send_response(user->socket, response);
-            free(response);
-        } else if (request[0] == 'U') {
-            // new user
-            char *word = request + 2;
-            word[strlen(word) - 1] = '\0';
-            user->username = strdup(word);
-            asprintf(&response, "New user connected: %s\n", word);
-            ess_println(response);
-            free(response);
-            return;
         }
-    return;
+        asprintf(&response, "E* The word %s has not been found in the dictionary.\n", word);
+        send_response(user->socket, response);
+        free(response);
+    } else if (request[0] == 'A') {
+        // add word to dictionary
+        asprintf(&response, "User %s has requested add word command.", user->username);
+        ess_println(response);
+        free(response);
+        //split word*definition\n from request into word and definition
+        char *word = strtok(request + 2, "*");
+        char *definition = strtok(NULL, "\n");
+
+        dictionary->num_entries++;
+        dictionary->entries = realloc(dictionary->entries, sizeof(DictionaryEntry) * dictionary->num_entries);
+        dictionary->entries[dictionary->num_entries - 1].word = strdup(word);
+        dictionary->entries[dictionary->num_entries - 1].definition = strdup(definition);
+
+        asprintf(&response, "OK* The word %s has been added to the dictionary.\n", word);
+        send_response(user->socket, response);
+        free(response);
+
+    } else if (request[0] == 'L') {
+        // list all words
+        asprintf(&response, "User %s has requested list words command.", user->username);
+        ess_println(response);
+        free(response);
+        asprintf(&response, "L*%lu*", dictionary->num_entries);
+        for (unsigned int i = 0; i < dictionary->num_entries; i++) {
+            char *temp;
+            asprintf(&temp, "%s\n", dictionary->entries[i].word);
+            char *temp2 = realloc(response, strlen(response) + strlen(temp) + 1);
+            if (temp2 == NULL) {
+                free(response);
+                free(temp);
+                ess_print_error("Error on realloc.");
+                return;
+            }
+            response = temp2;
+            strcat(response, temp);
+            free(temp);
+        }
+        send_response(user->socket, response);
+        free(response);
+    } else if (request[0] == 'U') {
+        // new user
+        char *word = request + 2;
+        word[strlen(word) - 1] = '\0';
+        user->username = strdup(word);
+        asprintf(&response, "New user connected: %s\n", word);
+        ess_println(response);
+        free(response);
+        return;
+    }
 }
 
 int main (const int argc, char *argv[]) {
 
     if (argc != 4) {
-        ess_print_error("Wrong number of arguments.");
+        ess_print_error("Number of args is not 2. It is necessary to provide the IP, port and filename.");
         ess_println("Usage: ./server <server_ip> <port> <dictionary_file>");
         exit(EXIT_FAILURE);
     }
@@ -248,6 +248,7 @@ int main (const int argc, char *argv[]) {
     }
     close(dictionary_file);
 
+    ess_println("Dictionary server started.");
 
     const int socket_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (socket_fd < 0) {
@@ -268,6 +269,7 @@ int main (const int argc, char *argv[]) {
         ess_print_error("Couldn't bind socket.");
         exit (EXIT_FAILURE);
     }
+    ess_println("Opening connections...");
 
     if (listen(socket_fd, 10) < 0) {
         free_dictionary(dictionary);
@@ -275,6 +277,8 @@ int main (const int argc, char *argv[]) {
         ess_print_error("Couldn't listen on socket.");
         exit(EXIT_FAILURE);
     }
+
+    ess_println("Waiting for a connection...\n");
 
     fd_set active_fds, read_fds;
     FD_ZERO(&active_fds);
@@ -317,24 +321,27 @@ int main (const int argc, char *argv[]) {
                 char request[1024];
                 const ssize_t bytes_read = read(client_fd, request, sizeof(request) - 1);
 
+                struct User *temp = NULL;
+                for (int i = 0; i < num_users; i++) {
+                    if (users[i].socket == client_fd) {
+                        temp = &users[i];
+                    }
+                }
                 if (bytes_read <= 0) {
-                    ess_println("Connection closed.");
-
+                    if (temp != NULL) {
+                        char *buffer;
+                        asprintf(&buffer, "New exit petition: %s has left the server.", temp->username);
+                        ess_println(buffer);
+                        if (temp->username) free(temp->username);
+                        free(temp);
+                    }
 
                     close(client_fd);
                     FD_CLR(client_fd, &active_fds);
                 } else {
                     request[bytes_read] = '\0';
 
-                    struct User *temp;
-                    for (int i = 0; i < num_users; i++) {
-                        if (users[i].socket == client_fd) {
-                            temp = &users[i];
-                        }
-                    }
-
                     handle_client(&dictionary, temp, request);
-
                 }
             }
         }
