@@ -17,6 +17,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <stdbool.h>
+#include <errno.h>
 
 /************************************ ESSLIB START ********************************************************************/
 #define TTY_COLOR_DEFAULT "\033[m"
@@ -104,6 +106,8 @@ struct User {
     int socket;
     char *username;
 };
+
+bool control_c_flag = false;
 
 int read_dictionary_file (const int fd, struct Dictionary *const dictionary) {
     char *buffer = ess_read_line(fd);
@@ -227,7 +231,12 @@ void handle_client (struct Dictionary *const dictionary, struct User *user, char
     }
 }
 
+void handleCtrlC(const int signal __attribute__((unused))) {
+    control_c_flag = true;
+}
+
 int main (const int argc, char *argv[]) {
+    signal(SIGINT, handleCtrlC);
 
     if (argc != 4) {
         ess_print_error("Number of args is not 2. It is necessary to provide the IP, port and filename.");
@@ -292,6 +301,15 @@ int main (const int argc, char *argv[]) {
         const int max_fd = get_max_fd(socket_fd, &active_fds);
 
         if (select(max_fd + 1, &read_fds, NULL, NULL, NULL) < 0) {
+            if (errno == EINTR) {
+                if (control_c_flag) {
+                    ess_println("Ctrl+C pressed. Exiting...");
+                    break;
+                } else {
+                    ess_print_error("Select interrupted, continuing...");
+                    continue;
+                }
+            }
             ess_print_error("Error in select.");
             break;
         }
@@ -310,7 +328,7 @@ int main (const int argc, char *argv[]) {
             FD_SET(new_fd, &active_fds);
             ess_println("New connection accepted.");
 
-            users = realloc(users, sizeof(struct User) * (max_fd + 1));
+            users = realloc(users, sizeof(struct User) * (num_users + 1));
             users[num_users].socket = new_fd;
             num_users++;
         }
@@ -322,9 +340,12 @@ int main (const int argc, char *argv[]) {
                 const ssize_t bytes_read = read(client_fd, request, sizeof(request) - 1);
 
                 struct User *temp = NULL;
+                int user_index = -1;
                 for (int i = 0; i < num_users; i++) {
                     if (users[i].socket == client_fd) {
                         temp = &users[i];
+                        user_index = i;
+                        break;
                     }
                 }
                 if (bytes_read <= 0) {
@@ -332,15 +353,20 @@ int main (const int argc, char *argv[]) {
                         char *buffer;
                         asprintf(&buffer, "New exit petition: %s has left the server.", temp->username);
                         ess_println(buffer);
+                        free(buffer);
                         if (temp->username) free(temp->username);
-                        free(temp);
+
+                        for (int i = user_index; i < num_users - 1; i++) {
+                            users[i] = users[i + 1];
+                        }
+                        num_users--;
+                        users = realloc(users, sizeof(struct User) * num_users);
                     }
 
                     close(client_fd);
                     FD_CLR(client_fd, &active_fds);
                 } else {
                     request[bytes_read] = '\0';
-
                     handle_client(&dictionary, temp, request);
                 }
             }
