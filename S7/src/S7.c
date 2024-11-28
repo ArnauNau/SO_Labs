@@ -133,6 +133,19 @@ int read_dictionary_file (const int fd, struct Dictionary *const dictionary) {
     return 1;
 }
 
+void write_dictionary_file (const int fd, const struct Dictionary dictionary) {
+    char *buffer;
+    asprintf(&buffer, "%lu\n", dictionary.num_entries);
+    write(fd, buffer, strlen(buffer));
+    free(buffer);
+
+    for (unsigned int i = 0; i < dictionary.num_entries; i++) {
+        asprintf(&buffer, "%s:%s\n", dictionary.entries[i].word, dictionary.entries[i].definition);
+        write(fd, buffer, strlen(buffer));
+        free(buffer);
+    }
+}
+
 void free_dictionary(const struct Dictionary dictionary) {
     if (dictionary.entries == NULL) return;
     for (unsigned int i = 0; i < dictionary.num_entries; i++) {
@@ -244,9 +257,9 @@ int main (const int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    const int dictionary_file = open(argv[3], O_RDONLY);
+    int dictionary_file = open(argv[3], O_RDONLY);
     if (dictionary_file < 0) {
-        ess_print_error("Couldn't open file");
+        ess_print_error("Couldn't open dictionary file");
         exit(EXIT_FAILURE);
     }
 
@@ -372,6 +385,16 @@ int main (const int argc, char *argv[]) {
             }
         }
     }
+
+    dictionary_file = open(argv[3], O_WRONLY);
+    if (dictionary_file < 0) {
+        ess_print_error("Couldn't open dictionary file");
+    }
+    else {
+        write_dictionary_file(dictionary_file, dictionary);
+        close(dictionary_file);
+    }
+
     if (users != NULL) {
         for (int i = 0; i < num_users; i++) {
             close(users[i].socket);
