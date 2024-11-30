@@ -41,13 +41,10 @@ void ess_print_error(const char * const string) {
     ess_print("\033[0m");
 }
 
-char * ess_read_until(const int fd, const char end) {
+ssize_t ess_read_until(const int fd, char **const string_ptr, const char end) {
+    ssize_t bytes_read = 0;
     ssize_t buffer_size = 8;
-    char *string = (char *) malloc(sizeof(char) * buffer_size);
-    if (string == NULL) {
-        ess_print_error("malloc failed.");
-        return NULL;
-    }
+    char *string = NULL;
 
     char c = '\0';
     int i = 0;
@@ -58,33 +55,35 @@ char * ess_read_until(const int fd, const char end) {
         if (size == 0) {
             if (i == 0) {
                 free(string);
-                return NULL;
+                return -1;
             }
             break;
         }
         if (size < 0) {
             free(string);
-            return NULL;
+            return -1;
         }
+        bytes_read += size;
         if(c != end){
-            if (i + 1 >= buffer_size) {
+            if (i + 1 >= buffer_size || string == NULL) {
                 buffer_size = buffer_size * 2;
                 char *temp = (char *) realloc(string, sizeof(char) * buffer_size);
                 if (temp == NULL) {
                     free(string);
                     ess_print_error("realloc failed.");
-                    return NULL;
+                    return -1;
                 }
                 string = temp;
             }
             string[i++] = c;
         }
     }
-    string[i] = '\0';
-    return string;
+    if (buffer_size > 0 && string != NULL) string[i] = '\0';
+    *string_ptr = string;
+    return bytes_read;
 }
-char * ess_read_line(const int fd) {
-    return ess_read_until(fd, '\n');
+ssize_t ess_read_line(const int fd, char **const string_ptr) {
+    return ess_read_until(fd, string_ptr, '\n');
 }
 /************************************ ESSLIB END ********************************************************************/
 
@@ -110,7 +109,8 @@ struct User {
 bool control_c_flag = false;
 
 int read_dictionary_file (const int fd, struct Dictionary *const dictionary) {
-    char *buffer = ess_read_line(fd);
+    char *buffer = NULL;
+    ess_read_line(fd, &buffer);
     if (buffer == NULL) {
         return 0;
     }
@@ -121,11 +121,11 @@ int read_dictionary_file (const int fd, struct Dictionary *const dictionary) {
     dictionary->entries = malloc(sizeof(struct Dictionary) * dictionary->num_entries);
 
     for (unsigned int i = 0; i < dictionary->num_entries; i++) {
-        buffer = ess_read_until(fd, ':');
+        ess_read_until(fd, &buffer, ':');
         dictionary->entries[i].word = strdup(buffer);
         free(buffer);
 
-        buffer = ess_read_line(fd);
+        ess_read_line(fd, &buffer);
         dictionary->entries[i].definition = strdup(buffer);
         free(buffer);
     }
@@ -177,7 +177,6 @@ void handle_client (struct Dictionary *const dictionary, struct User *user, char
         ess_println(response);
         free(response);
         char *word = request + 2;
-        word[strlen(word) - 1] = '\0';
         asprintf(&response, "Searching for word -> %s", word);
         ess_println(response);
         free(response);
@@ -235,7 +234,6 @@ void handle_client (struct Dictionary *const dictionary, struct User *user, char
     } else if (request[0] == 'U') {
         // new user
         char *word = request + 2;
-        word[strlen(word) - 1] = '\0';
         user->username = strdup(word);
         asprintf(&response, "New user connected: %s\n", word);
         ess_println(response);
@@ -349,8 +347,10 @@ int main (const int argc, char *argv[]) {
         // Check for data on existing connections
         for (int client_fd = 0; client_fd <= max_fd; client_fd++) {
             if (client_fd != socket_fd && FD_ISSET(client_fd, &read_fds)) {
-                char request[1024];
-                const ssize_t bytes_read = read(client_fd, request, sizeof(request) - 1);
+                //char request[1024];
+                //const ssize_t bytes_read = read(client_fd, request, sizeof(request) - 1);
+                char *request = NULL;
+                const ssize_t bytes_read = ess_read_line(client_fd, &request);
 
                 struct User *temp = NULL;
                 int user_index = -1;
@@ -381,6 +381,7 @@ int main (const int argc, char *argv[]) {
                 } else {
                     request[bytes_read] = '\0';
                     handle_client(&dictionary, temp, request);
+                    free(request);
                 }
             }
         }
