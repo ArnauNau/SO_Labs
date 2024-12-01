@@ -1,0 +1,14 @@
+13
+framework:A platform for developing software applications that provides a foundation on which software developers can build programs.
+function:A block of organized, reusable code that performs a single action.
+hash:A function that converts input data into a fixed-size string of characters.
+hostname:The label assigned to a device connected to a computer network.
+JSON:A lightweight data-interchange format that is easy for humans to read and write.
+kernel:The core component of an operating system that manages system resources and communication between hardware and software.
+latency:The delay before a transfer of data begins following an instruction.
+library:A collection of pre-compiled routines that a program can use.
+object:A data structure in object-oriented programming that contains data and methods.
+queue:A data structure in which elements are added at one end and removed from the other (FIFO).
+token:A string of characters categorized as a meaningful symbol by the compiler.
+variable:A symbolic name associated with a value and whose associated value may change.
+pilotes:que en son de bones
